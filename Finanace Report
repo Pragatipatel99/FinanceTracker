@@ -1,0 +1,206 @@
+#include <iostream>
+#include <string>
+#include <iomanip>
+#include <vector>
+#include <limits>
+#include <fstream>
+#include <sstream>
+#include <algorithm>
+
+using namespace std;
+
+const string FILENAME = "transactions.csv";
+
+class Transaction {
+private:
+    int id;
+    string date, type, category, description;
+    double amount;
+
+public:
+    Transaction(int id, const string& date, const string& type,
+                double amount, const string& category, const string& description)
+        : id(id), date(date), type(type), amount(amount),
+          category(category), description(description) {}
+
+    int getID() const { return id; }
+    string getDate() const { return date; }
+    string getType() const { return type; }
+    double getAmount() const { return amount; }
+    string getCategory() const { return category; }
+    string getDescription() const { return description; }
+
+    void display() const {
+        cout << id << " "
+             << date << " "
+             << type << " "
+             << fixed << setprecision(2) << amount << " "
+             << category << " "
+             << description << '\n';
+    }
+};
+
+class TransactionManager {
+private:
+    vector<Transaction> transactions;
+    int nextId;
+
+public:
+    TransactionManager() : nextId(1) {}
+
+    void addTransaction(const string& date, const string& type,
+                        double amount, const string& category,
+                        const string& description) {
+        transactions.emplace_back(nextId++, date, type, amount, category, description);
+    }
+
+    void viewAllTransactions() const {
+        if (transactions.empty()) {
+            cout << "\nNo transactions found.\n";
+            return;
+        }
+        for (const auto& t : transactions) t.display();
+    }
+
+    void saveToFile(const string& filename) const {
+        ofstream file(filename);
+        for (const auto& t : transactions) {
+            file << t.getID() << ","
+                 << t.getDate() << ","
+                 << t.getType() << ","
+                 << t.getAmount() << ","
+                 << t.getCategory() << ","
+                 << t.getDescription() << "\n";
+        }
+    }
+
+    void loadFromFile(const string& filename) {
+        ifstream file(filename);
+        int maxId = 0;
+
+        if (file.is_open()) {
+            string line;
+            while (getline(file, line)) {
+                stringstream ss(line);
+                string idStr, date, type, amountStr, category, description;
+
+                if (getline(ss, idStr, ',') &&
+                    getline(ss, date, ',') &&
+                    getline(ss, type, ',') &&
+                    getline(ss, amountStr, ',') &&
+                    getline(ss, category, ',') &&
+                    getline(ss, description)) {
+
+                    try {
+                        int id = stoi(idStr);
+                        double amount = stod(amountStr);
+
+                        transactions.emplace_back(id, date, type, amount, category, description);
+                        maxId = max(maxId, id);
+
+                    } catch (...) {}
+                }
+            }
+        }
+        nextId = maxId + 1;
+    }
+
+    void generateSummary() const {
+
+        // 🔥 Empty case handling
+        if (transactions.empty()) {
+            cout << "\nNo transactions available to generate a summary. Please add some first.\n";
+            return;
+        }
+
+        double totalIncome = 0.0;
+        double totalExpenses = 0.0;
+
+        for (const auto& transaction : transactions) {
+
+            if (transaction.getType() == "income") {
+                totalIncome += transaction.getAmount();
+            }
+            else if (transaction.getType() == "expense") {
+                totalExpenses += transaction.getAmount();
+            }
+        }
+
+        double netBalance = totalIncome - totalExpenses;
+
+        cout << "\n--- Financial Summary ---\n";
+        cout << fixed << setprecision(2);
+
+        cout << "Total Income:    $" << totalIncome << endl;
+        cout << "Total Expenses:  $" << totalExpenses << endl;
+        cout << "-------------------------" << endl;
+        cout << "Net Balance:     $" << netBalance << endl;
+        cout << "-------------------------\n" << endl;
+    }
+};
+
+void displayMenu() {
+    cout << "\n1.Add 2.View 4.Summary 3.Exit\n";
+}
+
+int main() {
+    TransactionManager manager;
+    manager.loadFromFile(FILENAME);
+
+    int choice;
+
+    while (true) {
+        displayMenu();
+        cin >> choice;
+
+        if (cin.fail()) {
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            continue;
+        }
+
+        switch (choice) {
+
+            case 1: {
+                string date, type, category, description;
+                double amount;
+
+                cout << "Enter date: ";
+                cin >> date;
+
+                cout << "Enter type (income/expense): ";
+                cin >> type;
+
+                cout << "Enter amount: ";
+                cin >> amount;
+
+                cout << "Enter category: ";
+                cin >> category;
+
+                cout << "Enter description: ";
+                cin.ignore();
+                getline(cin, description);
+
+                manager.addTransaction(date, type, amount, category, description);
+                cout << "\nTransaction added successfully!\n";
+                break;
+            }
+
+            case 2:
+                manager.viewAllTransactions();
+                break;
+
+            case 4:
+                manager.generateSummary();
+                break;
+
+            case 3:
+                manager.saveToFile(FILENAME);
+                cout << "\nGoodbye!\n";
+                return 0;
+
+            default:
+                cout << "\nInvalid choice\n";
+        }
+    }
+}
